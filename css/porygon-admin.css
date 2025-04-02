@@ -1,0 +1,24 @@
+/* Add this to your plugin's CSS file or enqueue it */
+
+#field-mapping-table input[type="text"] {
+    width: 100%;
+    max-width: 250px;
+}
+
+.custom-meta-field td {
+    background-color: #f7fcff;
+}
+
+#add-new-meta-field .dashicons {
+    line-height: 1.4;
+}
+
+/* Optional: add some spacing between form elements */
+#porygon-mapping-form-data select {
+    margin-right: 10px;
+    min-width: 200px;
+}
+
+.required {
+    color: #d63638;
+}

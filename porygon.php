@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Plugin Name:     Porygon Plugin 
  * Plugin URI:      PLUGIN SITE HERE
@@ -13,5 +14,39 @@
  */
 
 // Your code starts here.
+namespace Eren\Porygon;
 
-include plugin_dir_path( __FILE__ ) . 'inc/plugin-page.php';
+use Eren\Porygon\PorygonAdminPage;
+
+// If this file is called directly, abort.
+if (! defined('WPINC')) die;
+
+// Autoloader
+spl_autoload_register(function ($class) {
+    $prefix = __NAMESPACE__ . '\\';
+    if (strncmp($prefix, $class, strlen($prefix)) !== 0) {
+        return;
+    }
+
+    $file = plugin_dir_path(__FILE__) . 'inc/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+
+    if (file_exists($file)) {
+        require $file;
+    }
+});
+
+
+// Activation hook
+register_activation_hook(__FILE__, function () {
+    // Perform actions on plugin activation
+    // ... your code here ...
+});
+
+// Deactivation hook
+register_deactivation_hook(__FILE__, function () {
+    // Perform actions on plugin deactivation
+    // ... your code here ...
+});
+
+// Instantiate Admin Page
+$porygonAdminPage = new PorygonAdminPage();
