@@ -17,6 +17,7 @@
 namespace Eren\Porygon;
 
 use Eren\Porygon\PorygonAdminPage;
+use Eren\Porygon\PorygonMetaPage;
 
 // If this file is called directly, abort.
 if (! defined('WPINC')) die;
@@ -50,3 +51,4 @@ register_deactivation_hook(__FILE__, function () {
 
 // Instantiate Admin Page
 $porygonAdminPage = new PorygonAdminPage();
+$porygonMetaPage = new PorygonMetaPage();

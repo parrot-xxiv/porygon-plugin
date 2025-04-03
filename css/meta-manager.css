@@ -1,0 +1,79 @@
+/* Meta Manager Styles */
+.porygon-meta-manager {
+    margin: 20px 0;
+}
+
+.porygon-meta-controls {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.porygon-control-group {
+    margin-bottom: 10px;
+}
+
+.porygon-control-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.porygon-meta-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+#post-meta-table {
+    margin-top: 15px;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+#post-meta-table th {
+    font-weight: 600;
+    text-align: left;
+    padding: 10px;
+}
+
+#post-meta-table td {
+    padding: 8px 10px;
+    vertical-align: middle;
+}
+
+#post-meta-table .meta-key,
+#post-meta-table .meta-value {
+    width: 100%;
+}
+
+#add-new-meta-row {
+    background-color: #f9f9f9;
+}
+
+.delete-meta-btn {
+    color: #dc3232;
+}
+
+.delete-meta-btn:hover {
+    color: #a00;
+}
+
+#selected-post-title {
+    font-style: italic;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 782px) {
+    .porygon-meta-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    #post-meta-table th,
+    #post-meta-table td {
+        padding: 15px 10px;
+    }
+}
