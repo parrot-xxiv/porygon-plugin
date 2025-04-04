@@ -52,3 +52,4 @@ register_deactivation_hook(__FILE__, function () {
 // Instantiate Admin Page
 $porygonAdminPage = new PorygonAdminPage();
 $porygonMetaPage = new PorygonMetaPage();
+$porygonBulkEditPage = new PorygonBulkEditPage();

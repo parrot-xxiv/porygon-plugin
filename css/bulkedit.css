@@ -1,0 +1,162 @@
+.porygon-bulkedit {
+    max-width: 100%;
+    margin-top: 20px;
+}
+
+.porygon-notification-area {
+    margin: 15px 0;
+}
+
+.post-type-selection {
+    margin-bottom: 20px;
+}
+
+.post-search-area {
+    background: #f9f9f9;
+    padding: 15px;
+    border: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+
+.search-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+#post-search-input {
+    flex-grow: 1;
+}
+
+.search-results-list {
+    margin: 0;
+}
+
+.search-results-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.search-results-list li:nth-child(odd) {
+    background-color: #f5f5f5;
+}
+
+.bulk-edit-container {
+    margin-top: 30px;
+}
+
+.bulk-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+/* Column visibility controls styling */
+.column-visibility-container {
+    background: #f9f9f9;
+    padding: 15px;
+    border: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+
+.column-visibility-controls h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.column-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 5px;
+}
+
+.column-checkbox {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    padding: 5px 10px;
+    border: 1px solid #eee;
+    border-radius: 3px;
+}
+
+.column-checkbox input {
+    margin-right: 5px;
+}
+
+.posts-table-container {
+    overflow-x: auto;
+}
+
+#bulk-edit-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#bulk-edit-table th,
+#bulk-edit-table td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    vertical-align: top;
+}
+
+#bulk-edit-table th {
+    background-color: #f2f2f2;
+    text-align: left;
+}
+
+#bulk-edit-table td input[type="text"],
+#bulk-edit-table td textarea {
+    width: 100%;
+    padding: 5px;
+}
+
+.meta-field {
+    display: flex;
+    gap: 5px;
+}
+
+.meta-field input {
+    flex-grow: 1;
+}
+
+.taxonomy-selector {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin-top: 5px;
+    background: #fff;
+}
+
+.taxonomy-option {
+    margin-bottom: 5px;
+}
+
+.errors-list {
+    background-color: #fff8e5;
+    border-left: 4px solid #ffb900;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+.errors-list li {
+    margin-bottom: 5px;
+}
+
+button.remove-post,
+button.delete-meta {
+    padding: 3px 8px;
+    font-size: 12px;
+}
+
+button.show-taxonomy-selector {
+    margin-top: 5px;
+    padding: 3px 8px;
+    font-size: 12px;
+}
