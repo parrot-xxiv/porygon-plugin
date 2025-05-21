@@ -2,7 +2,7 @@
 
 namespace Eren\Porygon;
 
-class PorygonAdminPage
+class PorygonImportCsvPage
 {
     public function __construct()
     {
@@ -15,7 +15,7 @@ class PorygonAdminPage
 
     public function enqueueScripts($hook)
     {
-        if ('toplevel_page_porygon-page' !== $hook) {
+        if ('toplevel_page_porygon-import-csv' !== $hook) {
             return;
         }
 
@@ -50,10 +50,10 @@ class PorygonAdminPage
     public function addMenuPage()
     {
         add_menu_page(
-            'Porygon Page',
-            'Porygon',
+            'Import CSV Page',
+            'Import CSV',
             'manage_options',
-            'porygon-page',
+            'porygon-import-csv',
             [$this, 'renderPage'],
             'dashicons-admin-plugins',
             6
@@ -64,7 +64,7 @@ class PorygonAdminPage
     {
 ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Upload CSV/XLSX file', 'porygon-plugin'); ?></h1>
+            <h1><?php esc_html_e('Upload CSV file', 'porygon-plugin'); ?></h1>
             <p><?php esc_html_e('Import file to generate data.', 'porygon-plugin'); ?></p>
 
             <div id="porygon-notices"></div>
