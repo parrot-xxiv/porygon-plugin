@@ -189,6 +189,9 @@ class PorygonImportCsvPage
 
         // Get headers from first row of CSV
         $headers = isset($csvData[0]) ? $csvData[0] : [];
+        
+        // Get taxonomies for the post type
+        $taxonomies = get_object_taxonomies($postType, 'objects');
     ?>
         <h2><?php esc_html_e('Map CSV Columns to WordPress Fields', 'porygon-plugin'); ?></h2>
         <form id="porygon-mapping-form-data" method="post">
@@ -233,6 +236,44 @@ class PorygonImportCsvPage
                 </tbody>
             </table>
 
+            <?php if (!empty($taxonomies)): ?>
+            <h3><?php esc_html_e('Taxonomy Mapping', 'porygon-plugin'); ?></h3>
+            <table id="taxonomy-mapping-table" class="widefat striped">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('WordPress Taxonomy', 'porygon-plugin'); ?></th>
+                        <th><?php esc_html_e('CSV Column', 'porygon-plugin'); ?></th>
+                        <th><?php esc_html_e('Create Missing Terms', 'porygon-plugin'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($taxonomies as $taxonomy): ?>
+                        <tr>
+                            <td><?php echo esc_html($taxonomy->labels->singular_name); ?></td>
+                            <td>
+                                <select name="taxonomy_map[<?php echo esc_attr($taxonomy->name); ?>]">
+                                    <option value=""><?php esc_html_e('- Select Column -', 'porygon-plugin'); ?></option>
+                                    <?php foreach ($headers as $index => $header): ?>
+                                        <?php 
+                                        $selected = (strtolower($taxonomy->name) === strtolower($header) || 
+                                                    strtolower($taxonomy->labels->singular_name) === strtolower($header)) ? ' selected' : '';
+                                        ?>
+                                        <option value="<?php echo esc_attr($index); ?>" <?php echo $selected; ?>>
+                                            <?php echo esc_html($header); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                            <td>
+                                <input type="checkbox" name="create_terms[<?php echo esc_attr($taxonomy->name); ?>]" value="1" checked>
+                                <?php esc_html_e('Create if not exists', 'porygon-plugin'); ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
+
             <p>
                 <button type="button" id="add-new-meta-field" class="button">
                     <span class="dashicons dashicons-plus-alt"></span>
@@ -264,18 +305,21 @@ class PorygonImportCsvPage
         $csvData = json_decode(stripslashes($_POST['csv_data']), true);
         $fieldMap = $_POST['field_map'];
         $postType = sanitize_text_field($_POST['post_type']);
+        $taxonomyMap = isset($_POST['taxonomy_map']) ? $_POST['taxonomy_map'] : [];
+        $createTerms = isset($_POST['create_terms']) ? $_POST['create_terms'] : [];
 
         // Fixed check for title mapping - properly handle '0' value
         if (!isset($fieldMap['post_title']) || ($fieldMap['post_title'] === '' && $fieldMap['post_title'] !== '0')) {
             wp_send_json_error(['message' => __('Title field mapping is required', 'porygon-plugin')]);
         }
 
-        // Rest of the method remains the same...
         $headers = array_shift($csvData);
         $insertCount = 0;
         $errorCount = 0;
         $results = [];
-
+        $errors = [];
+        
+        // First pass: Validate all data before insertion
         foreach ($csvData as $rowIndex => $row) {
             // Skip empty rows
             if (empty(array_filter($row))) {
@@ -288,10 +332,7 @@ class PorygonImportCsvPage
                 'post_status' => 'draft',
             ];
 
-            // Prepare meta data
-            $metaData = [];
-
-            // Map fields to post data and meta data
+            // Map fields to post data
             foreach ($fieldMap as $wpField => $csvIndex) {
                 // Fixed check - properly handle '0' value
                 if ($csvIndex === '' && $csvIndex !== '0') {
@@ -300,40 +341,219 @@ class PorygonImportCsvPage
 
                 $value = isset($row[(int)$csvIndex]) ? $row[(int)$csvIndex] : '';
 
-                // Check if field is core or meta
                 if (in_array($wpField, ['post_title', 'post_content'])) {
                     $postData[$wpField] = $value;
-                } else {
-                    $metaData[$wpField] = $value;
                 }
             }
 
             // Check if title is set (required)
             if (empty($postData['post_title'])) {
                 $errorCount++;
-                $results[] = [
+                $errors[] = [
                     'row' => $rowIndex + 2,
-                    'status' => 'error',
                     'message' => __('Missing title', 'porygon-plugin')
                 ];
-                continue;
             }
+            
+            // Validate taxonomy terms if needed
+            foreach ($taxonomyMap as $taxonomy => $csvIndex) {
+                if (!empty($csvIndex) || $csvIndex === '0') {
+                    $termNames = isset($row[(int)$csvIndex]) ? explode(',', $row[(int)$csvIndex]) : [];
+                    
+                    foreach ($termNames as $termName) {
+                        $termName = trim($termName);
+                        if (empty($termName)) continue;
+                        
+                        // Check if we can create terms
+                        if (!isset($createTerms[$taxonomy]) && !term_exists($termName, $taxonomy)) {
+                            $errorCount++;
+                            $errors[] = [
+                                'row' => $rowIndex + 2,
+                                'message' => sprintf(__('Term "%s" does not exist in taxonomy "%s" and creation is not enabled', 'porygon-plugin'), $termName, $taxonomy)
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+        
+        // If there are validation errors, abort import
+        if ($errorCount > 0) {
+            wp_send_json_error([
+                'message' => __('Validation failed. No data was imported.', 'porygon-plugin'),
+                'errors' => $errors
+            ]);
+            return;
+        }
+        
+        // If no errors, proceed with insertion
+        global $wpdb;
+        $wpdb->query('START TRANSACTION');
+        
+        try {
+            foreach ($csvData as $rowIndex => $row) {
+                // Skip empty rows
+                if (empty(array_filter($row))) {
+                    continue;
+                }
 
-            // Insert post
-            $postId = wp_insert_post($postData);
-
-            if (is_wp_error($postId)) {
-                $errorCount++;
-                $results[] = [
-                    'row' => $rowIndex + 2,
-                    'status' => 'error',
-                    'message' => $postId->get_error_message()
+                // Prepare post data
+                $postData = [
+                    'post_type' => $postType,
+                    'post_status' => 'draft',
                 ];
-            } else {
+
+                // Prepare meta data
+                $metaData = [];
+
+                // Map fields to post data and meta data
+                foreach ($fieldMap as $wpField => $csvIndex) {
+                    // Fixed check - properly handle '0' value
+                    if ($csvIndex === '' && $csvIndex !== '0') {
+                        continue;
+                    }
+
+                    $value = isset($row[(int)$csvIndex]) ? $row[(int)$csvIndex] : '';
+
+                    // Check if field is core or meta
+                    if (in_array($wpField, ['post_title', 'post_content'])) {
+                        $postData[$wpField] = $value;
+                    } else {
+                        $metaData[$wpField] = $value;
+                    }
+                }
+
+                // Insert post
+                $postId = wp_insert_post($postData);
+
+                if (is_wp_error($postId)) {
+                    throw new \Exception($postId->get_error_message() . ' at row ' . ($rowIndex + 2));
+                }
+
                 // Insert meta fields
                 foreach ($metaData as $key => $value) {
                     update_post_meta($postId, $key, $value);
                 }
+                
+                // Process taxonomy terms
+                // Process taxonomy terms - MORE ROBUST LOOKUP
+                foreach ($taxonomyMap as $taxonomy => $csvIndex) {
+                    if ($csvIndex === '') continue; // No CSV column selected for this taxonomy
+
+                    $columnIndex = (int)$csvIndex;
+                    if (!isset($row[$columnIndex])) {
+                        continue;
+                    }
+                    
+                    $termNamesRaw = $row[$columnIndex];
+                    $termNamesList = [];
+                    if (is_string($termNamesRaw)) {
+                        $termNamesList = explode(',', $termNamesRaw);
+                    } elseif (is_numeric($termNamesRaw)) { // Handle if a single numeric value is not treated as string by explode
+                        $termNamesList = [(string)$termNamesRaw];
+                    }
+                    
+                    $processedTermIds = [];
+
+                    foreach ($termNamesList as $termNameSingle) {
+                        $termNameSingle = trim($termNameSingle); // Trim whitespace
+                        if (empty($termNameSingle)) {
+                            continue;
+                        }
+
+                        // UNCOMMENT FOR DEEP DEBUGGING:
+                        // error_log("Porygon Import - Processing term: '{$termNameSingle}' in taxonomy '{$taxonomy}' for post '{$postData['post_title']}'");
+
+                        $resolved_term_id = null;
+                        
+                        // 1. Try term_exists()
+                        $existing_term_data = term_exists($termNameSingle, $taxonomy);
+                        // UNCOMMENT FOR DEEP DEBUGGING:
+                        // error_log("Porygon Import - term_exists('{$termNameSingle}', '{$taxonomy}') returned: " . print_r($existing_term_data, true));
+
+                        if ($existing_term_data) {
+                            if (is_array($existing_term_data)) {
+                                $resolved_term_id = (int)$existing_term_data['term_id'];
+                            } else {
+                                $resolved_term_id = (int)$existing_term_data; // Should be term_id
+                            }
+                            // UNCOMMENT FOR DEEP DEBUGGING:
+                            // error_log("481 Porygon Import - Found via term_exists. ID: {$resolved_term_id}");
+                        } else {
+                            // 2. If term_exists failed, try get_term_by 'name'
+                            $term_object_by_name = get_term_by('name', $termNameSingle, $taxonomy);
+                            // UNCOMMENT FOR DEEP DEBUGGING:
+                            // error_log("486 Porygon Import - get_term_by('name', '{$termNameSingle}', '{$taxonomy}') returned: " . print_r($term_object_by_name, true));
+
+                            if ($term_object_by_name instanceof \WP_Term) {
+                                $resolved_term_id = (int)$term_object_by_name->term_id;
+                                // UNCOMMENT FOR DEEP DEBUGGING:
+                                // error_log("491 Porygon Import - Found via get_term_by('name'). ID: {$resolved_term_id}");
+                            } else {
+                                // 3. If that failed, try get_term_by 'slug'
+                                // For numeric names like "15", the slug is often also "15"
+                                $slug_to_check = sanitize_title($termNameSingle);
+                                $term_object_by_slug = get_term_by('slug', $slug_to_check, $taxonomy);
+                                // UNCOMMENT FOR DEEP DEBUGGING:
+                                // error_log("498 Porygon Import - get_term_by('slug', '{$slug_to_check}', '{$taxonomy}') returned: " . print_r($term_object_by_slug, true));
+                                
+                                if ($term_object_by_slug instanceof \WP_Term) {
+                                    $resolved_term_id = (int)$term_object_by_slug->term_id;
+                                    // UNCOMMENT FOR DEEP DEBUGGING:
+                                    // error_log("503 Porygon Import - Found via get_term_by('slug'). ID: {$resolved_term_id}");
+                                }
+                            }
+                        }
+
+                        // If term was found by any method above:
+                        if ($resolved_term_id && $resolved_term_id > 0) {
+                            // UNCOMMENT FOR DEEP DEBUGGING:
+                            // error_log("511 Porygon Import - Existing term resolved. ID: {$resolved_term_id} for '{$termNameSingle}'");
+                        } else {
+                            // Term still not found by any lookup method, attempt to create if allowed
+                            if (isset($createTerms[$taxonomy]) && $createTerms[$taxonomy] == '1') {
+                                // UNCOMMENT FOR DEEP DEBUGGING:
+                                // error_log("Porygon Import - Term '{$termNameSingle}' not found by any method. Attempting to create in '{$taxonomy}'. CreateTerms flag: " . $createTerms[$taxonomy]);
+                                
+                                $new_term_result = wp_insert_term($termNameSingle, $taxonomy);
+                                
+                                // UNCOMMENT FOR DEEP DEBUGGING:
+                                // if (is_wp_error($new_term_result)) {
+                                //     error_log("Porygon Import - wp_insert_term for '{$termNameSingle}' FAILED. Error code: " . $new_term_result->get_error_code() . ", Message: " . $new_term_result->get_error_message());
+                                // } else {
+                                //     error_log("Porygon Import - wp_insert_term for '{$termNameSingle}' SUCCEEDED. Result: " . print_r($new_term_result, true));
+                                // }
+
+                                if (!is_wp_error($new_term_result) && is_array($new_term_result) && isset($new_term_result['term_id'])) {
+                                    $resolved_term_id = (int)$new_term_result['term_id'];
+                                } else {
+                                     // UNCOMMENT FOR DEEP DEBUGGING:
+                                     // error_log("Porygon Import - Term creation failed for '{$termNameSingle}' or result was unexpected even if not WP_Error.");
+                                }
+                            } else {
+                                // UNCOMMENT FOR DEEP DEBUGGING:
+                                // error_log("Porygon Import - Term '{$termNameSingle}' not found, and creation not enabled for taxonomy '{$taxonomy}'.");
+                            }
+                        }
+
+                        if ($resolved_term_id && $resolved_term_id > 0) {
+                            if (!in_array($resolved_term_id, $processedTermIds)) {
+                                $processedTermIds[] = $resolved_term_id;
+                            }
+                        }
+                    } // End foreach $termNameSingle
+
+                    if (!empty($processedTermIds)) {
+                        $set_terms_result = wp_set_object_terms($postId, $processedTermIds, $taxonomy, false); 
+                        // UNCOMMENT FOR DEEP DEBUGGING:
+                        if (is_wp_error($set_terms_result)) {
+                            // error_log("Porygon Import - wp_set_object_terms FAILED for post {$postId}, taxonomy '{$taxonomy}'. Error: " . $set_terms_result->get_error_message());
+                        } else {
+                            // error_log("Porygon Import - wp_set_object_terms SUCCEEDED for post {$postId}, taxonomy '{$taxonomy}'. Terms: " . implode(',', $processedTermIds));
+                        }
+                    }
+                } // End foreach $taxonomyMap
+
                 $insertCount++;
                 $results[] = [
                     'row' => $rowIndex + 2,
@@ -342,19 +562,31 @@ class PorygonImportCsvPage
                     'title' => $postData['post_title']
                 ];
             }
+            
+            // If we got this far with no exceptions, commit the transaction
+            $wpdb->query('COMMIT');
+            
+            wp_send_json_success([
+                'message' => sprintf(
+                    __('Import completed: %d posts created successfully.', 'porygon-plugin'),
+                    $insertCount
+                ),
+                'success_count' => $insertCount,
+                'error_count' => 0,
+                'results' => $results
+            ]);
+            
+        } catch (\Exception $e) {
+            // If any error occurred, rollback the transaction
+            $wpdb->query('ROLLBACK');
+            
+            wp_send_json_error([
+                'message' => __('Error during import. No data was imported.', 'porygon-plugin'),
+                'error' => $e->getMessage()
+            ]);
         }
-
-        wp_send_json_success([
-            'message' => sprintf(
-                __('Import completed: %d posts created successfully, %d failed.', 'porygon-plugin'),
-                $insertCount,
-                $errorCount
-            ),
-            'success_count' => $insertCount,
-            'error_count' => $errorCount,
-            'results' => $results
-        ]);
     }
+    
     private function getPostMetaFields($post_type)
     {
         global $wpdb;
